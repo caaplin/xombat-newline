@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content" />
+  <title>XOMBAT — Newline</title>
+  <meta name="description" content="Combat till end. Type Python ahead of the trace. No backspace." />
+  <meta name="theme-color" content="#020403" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23020403'/%3E%3Cpath d='M7 9l7 7-7 7' stroke='%2339ff88' stroke-width='3' fill='none'/%3E%3Cpath d='M18 23h8' stroke='%23ff2e88' stroke-width='3'/%3E%3C/svg%3E" />
+  <link rel="stylesheet" href="css/game.css" />
+</head>
+<body>
+  <canvas id="world" aria-hidden="true"></canvas>
+  <div id="vignette" aria-hidden="true"></div>
+  <p class="announce" id="announce" aria-live="polite"></p>
+
+  <!-- ============================== PLAY ============================== -->
+  <main id="game" class="screen" hidden>
+    <header class="hud">
+      <h1 class="brand">NEWLINE</h1>
+      <div class="hud-stats">
+        <div class="stat"><span class="stat-v" id="score">0</span><span class="stat-k">score</span></div>
+        <div class="stat"><span class="stat-v" id="combo">&times;1</span><span class="stat-k">combo</span></div>
+        <div class="stat"><span class="stat-v" id="depth">1&ndash;1</span><span class="stat-k" id="zone-name">Neon Slums</span></div>
+        <button class="t-pause" type="button" id="btn-pause" aria-label="Pause (Escape)"><i></i><i></i></button>
+      </div>
+      <p class="mods">
+        <span id="mode-tag">combat till end</span>
+        <span id="cards-tag"></span>
+        <button class="mute" id="btn-mute" type="button" aria-pressed="false">sound on</button>
+      </p>
+    </header>
+
+    <section class="stage">
+      <div class="hp" role="meter" aria-label="Health" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100" id="hp">
+        <span class="hp-k">HP</span>
+        <div class="hp-bar" id="hp-bar"></div>
+        <span class="hp-v" id="hp-v">100</span>
+      </div>
+
+      <div class="line-wrap">
+        <div class="term" id="term">
+          <div class="history" id="history" aria-hidden="true"></div>
+          <div class="bossbar" id="bossbar" hidden>
+            <span class="bb-name" id="bb-name">BOSS</span>
+            <div class="bb-track"><i id="bb-fill"></i></div>
+            <span class="bb-phase" id="bb-phase">I</span>
+          </div>
+          <div class="line" id="line" aria-label="Current line"></div>
+          <div class="upcoming" id="upcoming" aria-hidden="true"></div>
+        </div>
+      </div>
+
+      <div class="damage" id="kb" aria-label="Scarred keys"></div>
+      <p class="toast" id="toast"></p>
+      <p class="banner" id="banner" aria-live="polite"></p>
+      <p class="hint" id="hint">type the code &middot; no backspace &middot; Escape to pause</p>
+    </section>
+    <textarea id="kbd" class="kbd-input" aria-label="Typing input" autocomplete="off" autocorrect="off"
+      autocapitalize="off" spellcheck="false" rows="1"></textarea>
+  </main>
+
+  <!-- ============================== CODE ============================== -->
+  <main id="gate" class="screen gate">
+    <div class="gate-box">
+      <p class="gate-kicker">combat till end</p>
+      <h1 class="gate-logo glitch" data-text="XOMBAT">XOMBAT</h1>
+      <p class="gate-sub">newline</p>
+      <p class="gate-lede">
+        One mode. One line of Python at a time, and something burning up the wire behind you.
+        Paste a run code to jack in. There is no backspace and no way out except through.
+      </p>
+
+      <label class="gate-label" for="code-input">run code</label>
+      <div class="gate-row">
+        <input id="code-input" class="gate-input" type="text" spellcheck="false" autocomplete="off"
+          placeholder="paste a code, or leave empty for a random one" aria-describedby="code-note" />
+        <button id="btn-paste" class="gate-btn ghost" type="button" title="Paste from clipboard">paste</button>
+      </div>
+      <p class="gate-note" id="code-note">Any text works. A shared code replays the exact same run for everyone.</p>
+
+      <div class="gate-row gate-actions">
+        <button id="btn-start" class="gate-btn primary" type="button">jack in</button>
+        <button id="btn-random" class="gate-btn ghost" type="button">random code</button>
+      </div>
+
+      <div class="gate-meta">
+        <span id="best-line">best: &mdash;</span>
+        <span id="runs-line">runs: 0</span>
+      </div>
+
+      <details class="gate-help">
+        <summary>how it works</summary>
+        <ul>
+          <li><b>grunts</b> are plain characters. Type them.</li>
+          <li><b>brutes</b> (whole words, in red) die on the last letter — but a miss inside one hurts 1.5&times;.</li>
+          <li><b>snipers</b> aim for 3.2s, then fire for 4 HP. Kill them or eat it.</li>
+          <li><b>bombers</b> explode after 1.6s. <b>Berserkers</b> rip 8 HP every 1.2s.</li>
+          <li><b>shields</b> need two hits, <b>juggernauts</b> three. <b>medics</b> heal, <b>caches</b> pay.</li>
+          <li><b>keys you miss get scarred</b> and come back underlined, costing double. 30 clean keys repairs one.</li>
+          <li>Every third line of a floor is a <b>boss</b>; every floor cleared offers a <b>card</b>.</li>
+          <li>You get 100 HP. It never refills on its own. Combat runs till it ends.</li>
+        </ul>
+      </details>
+    </div>
+  </main>
+
+  <!-- ============================== PAUSE ============================== -->
+  <main id="pause" class="screen overlay" hidden>
+    <div class="panel">
+      <p class="panel-kicker">paused</p>
+      <h2 class="panel-title">Line held</h2>
+      <p class="panel-text" id="pause-code">run code</p>
+      <div class="panel-actions">
+        <button class="gate-btn primary" id="btn-resume" type="button">resume</button>
+        <button class="gate-btn ghost" id="btn-quit" type="button">pull the plug</button>
+      </div>
+      <p class="panel-note">Pulling the plug ends the run where it stands.</p>
+    </div>
+  </main>
+
+  <!-- ============================== RESULT ============================== -->
+  <main id="result" class="screen overlay" hidden>
+    <div class="panel wide">
+      <p class="panel-kicker" id="result-kicker">combat ended</p>
+      <h2 class="panel-title" id="result-title">Traced</h2>
+      <p class="panel-cause" id="result-cause"></p>
+
+      <div class="final">
+        <b id="result-score">0</b>
+        <span class="final-unit">points</span>
+        <span class="final-best" id="result-best" hidden>new best</span>
+      </div>
+
+      <div class="tiles">
+        <div class="tile"><b id="result-depth">1&ndash;1</b><span>depth reached</span></div>
+        <div class="tile"><b id="result-wpm">0</b><span>wpm</span></div>
+        <div class="tile"><b id="result-acc">100%</b><span>accuracy</span></div>
+        <div class="tile"><b id="result-streak">0</b><span>best combo</span></div>
+        <div class="tile"><b id="result-lines">0</b><span>lines cleared</span></div>
+        <div class="tile"><b id="result-keys">0</b><span>keys broken</span></div>
+      </div>
+
+      <p class="result-cards" id="result-cards"></p>
+
+      <div class="share">
+        <label for="share-code">share code</label>
+        <div class="gate-row">
+          <input id="share-code" class="gate-input" type="text" readonly />
+          <button id="btn-copy" class="gate-btn ghost" type="button">copy</button>
+        </div>
+      </div>
+
+      <div class="panel-actions">
+        <button class="gate-btn primary" id="btn-again" type="button">again, same code</button>
+        <button class="gate-btn ghost" id="btn-newcode" type="button">new code</button>
+      </div>
+      <p class="panel-note" id="result-note">Enter: again &middot; Escape: code screen</p>
+    </div>
+  </main>
+
+  <!-- card offer -->
+  <div class="overlay cards-overlay" id="cards" hidden>
+    <div class="cards-box">
+      <p class="panel-kicker">floor cleared</p>
+      <h2 class="panel-title">Pick one</h2>
+      <div class="cards-row" id="cards-row"></div>
+      <p class="panel-note">1 &middot; 2 &middot; 3 or click</p>
+    </div>
+  </div>
+
+  <script src="js/data/words.js"></script>
+  <script src="js/data/snippets.js"></script>
+  <script src="js/core/rng.js"></script>
+  <script src="js/core/text.js"></script>
+  <script src="js/core/enemies.js"></script>
+  <script src="js/core/cards.js"></script>
+  <script src="js/core/keys.js"></script>
+  <script src="js/core/engine.js"></script>
+  <script src="js/core/codes.js"></script>
+  <script src="js/ui/audio.js"></script>
+  <script src="js/ui/world.js"></script>
+  <script src="js/ui/game.js"></script>
+</body>
+</html>

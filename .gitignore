@@ -1,0 +1,5 @@
+# nothing generated belongs in here except the committed data + screenshots
+node_modules/
+.DS_Store
+*.log
+src/
