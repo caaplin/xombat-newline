@@ -20,6 +20,7 @@ const files = [
   'js/data/words.js',
   'js/data/snippets.js',
   'js/data/packs.js',
+  'js/data/sprites.js',
   'js/core/rng.js',
   'js/core/langs.js',
   'js/core/text.js',
@@ -388,6 +389,49 @@ console.log('\ntypeability');
     }
   }
   ok(badPacks === 0, 'every language pack is tab-free', badPacks);
+}
+
+/* -------------------------------------------------------------- 11c. sprites */
+console.log('\nsprites');
+{
+  const d = BL.SPRITE_DATA;
+  ok(!!d, 'the extracted sprite data is loaded');
+  ok(d.foes.length >= 30, 'there is a full foe roster', d.foes.length);
+  ok(d.heroes.length >= 4, 'there are fighters', d.heroes.length);
+
+  // every zone the engine can send you to must have creatures to draw
+  const zoneIds = BL.ENEMY.ZONES.map((z) => z.id);
+  const populated = zoneIds.filter((id) => d.foes.some((f) => f.zone === id));
+  ok(populated.length === zoneIds.length, 'every zone has creatures', populated.length + '/' + zoneIds.length);
+
+  // matrices must be rectangular and use only characters the palette defines
+  let ragged = 0;
+  let unpaletted = 0;
+  const check = (name, rows, pal) => {
+    const w = rows[0].length;
+    if (rows.some((r) => r.length !== w)) ragged++;
+    for (const row of rows) {
+      for (const ch of row) if (ch !== '.' && !pal[ch]) unpaletted++;
+    }
+  };
+  for (const f of d.foes) check(f.name, f.rows, f.pal);
+  for (const h of d.heroes) for (const pose of Object.keys(h.poses)) check(pose, h.poses[pose], h.pal);
+  ok(ragged === 0, 'every sprite matrix is rectangular', ragged);
+  ok(unpaletted === 0, 'every pixel has a colour', unpaletted);
+
+  // the poses the stage asks for must exist on every fighter
+  // the universal poses: every fighter must be able to stand, guard and get hit
+  const needed = ['idle', 'guard', 'hurt'];
+  const missing = [];
+  for (const h of d.heroes) for (const p of needed) if (!h.poses[p]) missing.push(h.id + '/' + p);
+  ok(missing.length === 0, 'every fighter can idle, guard and take a hit', missing.join(','));
+  // and every fighter can throw at least one punch, whatever it is called
+  const PUNCH = ['jab', 'cross', 'iai', 'thrust', 'haymaker', 'uppercut', 'palm', 'zap'];
+  const unarmed = d.heroes.filter((h) => !PUNCH.some((p) => h.poses[p])).map((h) => h.id);
+  ok(unarmed.length === 0, 'every fighter has an attack pose', unarmed.join(','));
+
+  // a zone's creatures are drawn from that zone only
+  ok(d.foes.every((f) => zoneIds.includes(f.zone)), 'no foe belongs to an unknown zone');
 }
 
 /* ------------------------------------------------------------- 12. mirror */

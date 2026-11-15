@@ -7,6 +7,10 @@ roguelike where you type Python ahead of an ICE trace and there is no backspace.
 out. There is no stage select, no practice, no leaderboard, no backend. It is a folder of HTML, CSS
 and JS that runs from `file://` or any static host.
 
+Your fighter stands at the cursor and throws a punch for every character; each character of the
+line is a creature of the zone you are in, waiting to be typed to death. (Those sprites are the
+original's own pixel matrices — see *the art*, below.)
+
 Two ways to get text into a run:
 
 - **A run code** (`XMB-7K4Q-P2NH`) — the shipped corpus, replayable by anyone.
@@ -162,7 +166,9 @@ js/ui/world.js        the pixel city behind the terminal (canvas)
 js/ui/audio.js        all SFX synthesised with WebAudio
 js/data/snippets.js   generated: the 34 Python snippets
 js/data/packs.js      generated: 48 language packs, 370 snippets
+js/data/sprites.js    generated: 35 foe matrices + 4 fighters, from the bundle
 js/data/words.js      generated: 620 English words
+js/ui/stage.js        the fighters: hero + one creature per character
 js/ui/gallery.js      the asset browser
 tools/sim-test.cjs    headless rule tests (node, no dependencies)
 tools/extract-data.cjs  regenerates js/data from the original bundle

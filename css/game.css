@@ -219,9 +219,21 @@ body {
 }
 
 .line-wrap { width: var(--line-max); max-width: 100%; position: relative; }
+/* the fighters: painted under the terminal, in the glyph coordinate space */
+.stage-c {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  image-rendering: pixelated;
+}
+/* the text must stay legible on top of the fighters */
+.term .history, .term .line, .term .upcoming, .term .bossbar { position: relative; z-index: 1; }
 .term {
   position: relative;
-  padding: 18px 22px 14px;
+  z-index: 1;
+  /* the top padding is the fighters' strip: they stand on a wire above the code */
+  padding: calc(18px + var(--stage-h, 74px)) 22px 14px;
   background: linear-gradient(180deg, #020403e0, #020403c4 70%, #02040399);
   box-shadow: inset 3px 0 0 var(--ember), inset 0 0 0 1px #173a2566, 0 24px 60px #000000b3;
   backdrop-filter: blur(2px);
@@ -726,7 +738,7 @@ body {
   #game { padding: 12px 12px 20px; gap: 10px; }
   .gallery-box { padding: 18px 14px 50px; }
   .gallery-strip { grid-auto-columns: 112px; }
-  .term { padding: 14px 14px 10px; }
+  .term { padding: calc(14px + var(--stage-h, 62px)) 14px 10px; }
   .hint { font-size: 10px; }
   .cards-row { grid-template-columns: 1fr; }
   .tiles { grid-template-columns: repeat(2, 1fr); }

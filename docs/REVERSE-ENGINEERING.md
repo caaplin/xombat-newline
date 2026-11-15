@@ -191,8 +191,22 @@ The rest of the imagery lives on the wider site, so all of it was pulled down an
 in the built-in gallery (**the art** button), which is the honest way to "integrate" assets that the
 game itself has no use for.
 
-Sprites were *not* ripped from the atlases: the original generates its characters from code, and the
-atlases are marketing illustrations in a different art style. The procedural look was kept instead.
+Sprites were *not* ripped from the atlases: those are marketing illustrations in a different art
+style. The original's real characters are not images at all — they are ASCII pixel matrices in the
+bundle (`Kn = [{ zone, name, rows: ['....hh.....', ...], pal: { h: '#ff2e88' } }]`, 35 foes across
+the 10 zones, plus `rr = [operator, ronin, titan, glitch]` with 14–21 pose sheets each) which it
+paints into an offscreen canvas with `sprite()`/`blit()`. `tools/extract-sprites.cjs` pulls those
+matrices out verbatim into `js/data/sprites.js` (36 KB), and `js/ui/stage.js` renders them:
+
+- a creature for every few cells of the line, chosen by the *kind* of character (brute → the big
+  matrix, sniper → the flyer, grunt → a mook, hashed so it is stable per cell),
+- the fighter at the cursor, in `idle`/`jab`/`cross`/`guard`/`hurt` from its own pose sheet,
+  punching on each keystroke and flinching when HP drops,
+- a boss figure at the far end of the wire during boss waves,
+- magenta pixel puffs where creatures die, and a shadow + wire so they sit on the line.
+
+The rank follows the cursor's physical row, and sprites are integer-scaled (2px on phones, 4px on a
+wide stage), so the pixel look survives at every size.
 
 ## 5. Two judgement calls
 

@@ -131,6 +131,7 @@
   let lineCols = 40;
   window.addEventListener('resize', () => {
     lineCols = fitLine();
+    if (BL.stage) BL.stage.resize();
   });
 
   /* ------------------------------------------------------------------ *
@@ -741,7 +742,31 @@
       renderBoss(snap);
       renderScars();
       if (state.mode === 'play') BL.Audio.setTension(snap.heat);
+      paintStage(dt, snap);
+    } else if (BL.stage) {
+      BL.stage.clear();
     }
+  }
+
+  /**
+   * Hand the stage the same information the terminal has: the live spans (so a
+   * creature can stand on the exact glyph it belongs to), the zone, and how
+   * long ago the player last pressed a key (so the hero punches on time).
+   */
+  function paintStage(dt, snap) {
+    const stage = BL.stage;
+    if (!stage) return;
+    if (!state.fighter) state.fighter = stage.heroFighter(state.code);
+    stage.frame(dt, snap, {
+      spans: state.spans,
+      lineEl: ui.line,
+      zoneId: snap.zone && snap.zone.zone ? snap.zone.zone.id : 'slums',
+      slot: parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--line-size')) * 0.6 || 12,
+      code: state.code,
+      fighter: state.fighter,
+      lastKeyAt: state.lastKeyAt === undefined ? -9 : state.lastKeyAt,
+      lastKeyAlt: state.lastKeyAlt,
+    });
   }
 
   /* ------------------------------------------------------------------ *
@@ -779,6 +804,9 @@
   function typingKey(ch) {
     const e = state.engine;
     if (!e) return;
+    // the stage punches on every keystroke; alternate the arm so it reads
+    state.lastKeyAt = e.elapsed;
+    state.lastKeyAlt = !state.lastKeyAlt;
     if (ch === '§') {
       // the original's stand-in for a wrong key
       e.input('\u00a7', performance.now());
@@ -883,6 +911,13 @@
 
   function boot() {
     BL.world = new BL.World($('world'));
+    // the fighters are painted into a canvas that covers the terminal
+    try {
+      BL.stage = new BL.Stage($('stage-c'), $('term'));
+    } catch (err) {
+      BL.stage = null;
+      console.warn('stage unavailable', err);
+    }
     lineCols = fitLine();
     initSound();
     bindKeys();
