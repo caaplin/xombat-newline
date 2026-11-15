@@ -339,7 +339,69 @@ console.log('\npasted source');
   ok(!code.includes('#include') && code.length < 20, 'the share code carries no source', code);
 }
 
-/* ------------------------------------------------ 11. language packs */
+/* ------------------------------------------------------ 11. typeability */
+console.log('\ntypeability');
+{
+  // nothing the game shows may contain a character a keyboard cannot produce
+  const engines = [
+    new BL.Engine({ seed: 'tabs-1', lineLength: 44 }),
+    BL.setup.engineFor({ seed: 'tabs-2', lineLength: 44, lang: 'c' }),
+    BL.setup.engineFor({ seed: 'tabs-3', lineLength: 44, lang: 'python' }),
+    BL.setup.engineFor({ seed: 'tabs-4', lineLength: 44, text: 'a\tb\n\tc\n' }),
+  ];
+  let tabs = 0;
+  for (const e of engines) {
+    for (let n = 0; n < 400; n++) {
+      if (e.line.indexOf('\t') !== -1) tabs++;
+      if (e.offer) { e.choose(0); e.drain(); continue; }
+      e.input(e.line[e.cursor], n * 20);
+      e.drain();
+      if (e.dead) break;
+    }
+  }
+  ok(tabs === 0, 'no dealt line contains a raw tab', tabs);
+
+  // and an untypeable character never appears in the shipped packs
+  let badPacks = 0;
+  for (const id of Object.keys(BL.setup.PACKS)) {
+    for (const snip of BL.setup.poolFor(id)) {
+      if (snip.lines.some((l) => l.indexOf('\t') !== -1)) badPacks++;
+    }
+  }
+  ok(badPacks === 0, 'every language pack is tab-free', badPacks);
+}
+
+/* ------------------------------------------------------------- 12. mirror */
+console.log('\nmirror boss');
+{
+  // Deal mirror lines directly and type each one exactly, with a fixed clock,
+  // so the check is about the line and not about the trace.
+  const e = new BL.Engine({ seed: 'mirror-test', lineLength: 44 });
+  e.boss = { id: 'mirror', name: 'Mirror', fireMul: 0.8 };
+  let checked = 0;
+  let trailing = 0;
+  let cleared = 0;
+  for (let n = 0; n < 12; n++) {
+    e.nextLine(6);
+    const line = e.line;
+    checked++;
+    if (line !== ' ' && /\s$/.test(line)) trailing++; // ' ' is the blank-line placeholder
+    const before = e.linesCleared;
+    let guard = 0;
+    // armored brutes eat the first keystroke (so press each character until the
+    // cursor moves) and a cleared floor stops to deal cards (so take one)
+    while (e.cursor < e.line.length && !e.dead && guard++ < 4000) {
+      if (e.offer) { e.choose(0); e.drain(); continue; }
+      e.input(e.line[e.cursor], n * 9000 + guard * 40);
+    }
+    if (e.linesCleared > before) cleared++;
+  }
+  ok(checked === 12, 'mirror lines were dealt', checked);
+  ok(trailing === 0, 'a mirrored line never ends in whitespace', trailing);
+  ok(cleared === 12, 'every mirrored line can be typed through', cleared);
+}
+
+/* ------------------------------------------------ 13. language packs */
 console.log('\nlanguage packs');
 {
   const langs = BL.setup.languages();

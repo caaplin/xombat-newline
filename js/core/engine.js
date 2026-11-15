@@ -254,7 +254,21 @@
       const width = Math.max(10, Math.round(this.lineLength * (boss ? 0.9 : 1)));
       let text = this.pasted ? this.pasted.next(width) : this.code.next(width);
       if (!text) text = BL.wordChain(this.rng, width);
-      if (boss && boss.id === 'mirror') text = mirrorText(text);
+      if (text.indexOf('\t') !== -1) text = BL.detab(text); // belt and braces
+      // trailing spaces are invisible and untypeable; a blank line becomes a
+      // single Space, which the player finishes with Enter
+      text = text
+        .split('\n')
+        .map((l) => l.replace(/\s+$/, '') || ' ')
+        .join('\n');
+      if (boss && boss.id === 'mirror') {
+        // mirror each physical line, not the block, or the reversal would carry
+        // one line's indentation onto the end of another
+        text = text
+          .split('\n')
+          .map((l) => mirrorText(l).replace(/\s+$/, '') || ' ')
+          .join('\n');
+      }
       return text;
     }
 
@@ -797,9 +811,16 @@
     }
   }
 
+  /**
+   * The Mirror boss flips the line. Reversing every character would drag the
+   * indentation to the wrong side and leave trailing spaces (untypeable), so
+   * reverse both the word order and each word instead: the line still reads
+   * backwards, but it ends on a letter.
+   */
   function mirrorText(text) {
     return text
       .split(' ')
+      .reverse()
       .map((w) => w.split('').reverse().join(''))
       .join(' ');
   }

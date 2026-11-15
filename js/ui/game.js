@@ -765,8 +765,8 @@
       return;
     }
     let n = 0;
-    while (e.cursor < e.line.length && e.line[e.cursor] === ' ' && n < (isTab ? 4 : 1)) {
-      e.input(' ', performance.now());
+    while (e.cursor < e.line.length && /\s/.test(e.line[e.cursor]) && n < (isTab ? 4 : 1)) {
+      e.input(e.line[e.cursor], performance.now());
       n++;
       e.drain();
       if (e.dead) break;

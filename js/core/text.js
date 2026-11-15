@@ -11,6 +11,11 @@
   const SNIPPETS = (window.BL_DATA && window.BL_DATA.python) || [];
   const WORDS = (window.BL_DATA && window.BL_DATA.words) || 'the of and a to in'.split(' ');
 
+  /** Tabs are not on a normal keyboard: every line the game deals uses spaces. */
+  function detab(line) {
+    return String(line).replace(/\t/g, '    ');
+  }
+
   /** Wrap one snippet line at `width` characters, preferring space breaks. */
   function wrap(line, width) {
     if (line.length <= width) return [line];
@@ -57,7 +62,7 @@
       let used = 0;
       for (let guard = 0; guard < 60; guard++) {
         if (!this.pending.length) {
-          this.pending = this.nextSnippet().lines.flatMap((l) => wrap(l, width));
+          this.pending = this.nextSnippet().lines.flatMap((l) => wrap(detab(l), width));
         }
         if (this.pending[0].length > width) {
           // a single token is wider than the viewport: hard-split it
@@ -97,6 +102,7 @@
   }
 
   BL.CodeSource = CodeSource;
+  BL.detab = detab;
   BL.wordChain = wordChain;
   BL.wrap = wrap;
 })(window.BL = window.BL || {});
