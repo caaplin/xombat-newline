@@ -26,6 +26,7 @@
       </div>
       <p class="mods">
         <span id="mode-tag">combat till end</span>
+        <span id="lang-tag"></span>
         <span id="cards-tag"></span>
         <button class="mute" id="btn-mute" type="button" aria-pressed="false">sound on</button>
       </p>
@@ -63,45 +64,106 @@
   <!-- ============================== CODE ============================== -->
   <main id="gate" class="screen gate">
     <div class="gate-box">
-      <p class="gate-kicker">combat till end</p>
-      <h1 class="gate-logo glitch" data-text="XOMBAT">XOMBAT</h1>
-      <p class="gate-sub">newline</p>
-      <p class="gate-lede">
-        One mode. One line of Python at a time, and something burning up the wire behind you.
-        Paste a run code to jack in. There is no backspace and no way out except through.
-      </p>
-
-      <label class="gate-label" for="code-input">run code</label>
-      <div class="gate-row">
-        <input id="code-input" class="gate-input" type="text" spellcheck="false" autocomplete="off"
-          placeholder="paste a code, or leave empty for a random one" aria-describedby="code-note" />
-        <button id="btn-paste" class="gate-btn ghost" type="button" title="Paste from clipboard">paste</button>
+      <div class="gate-top">
+        <div class="gate-head">
+          <p class="gate-kicker">combat till end</p>
+          <h1 class="gate-logo glitch" data-text="XOMBAT">XOMBAT</h1>
+          <p class="gate-sub">newline</p>
+          <p class="gate-lede">
+            One mode. One line of code at a time, and something burning up the wire behind you.
+            Paste a run code to jack in &mdash; or paste <b>your own code</b> and play on that.
+            No backspace, no way out except through.
+          </p>
+        </div>
+        <figure class="gate-art">
+          <img src="assets/art/key-art.jpg" alt="" width="1536" height="1024" />
+          <figcaption>the wire, the runner, and the thing behind them</figcaption>
+        </figure>
       </div>
-      <p class="gate-note" id="code-note">Any text works. A shared code replays the exact same run for everyone.</p>
+
+      <div class="gate-panels">
+        <!-- run code -->
+        <section class="gate-panel">
+          <h2 class="gate-h">run code</h2>
+          <div class="gate-row">
+            <input id="code-input" class="gate-input" type="text" spellcheck="false" autocomplete="off"
+              placeholder="XMB-XXXX-XXXX" aria-label="Run code" aria-describedby="code-note" />
+            <button id="btn-paste-code" class="gate-btn ghost" type="button" title="Paste a code from the clipboard">paste</button>
+          </div>
+          <p class="gate-note" id="code-note">
+            Leave empty for a random one. The same code replays the same run &mdash; same
+            lines, same enemies, same cards.
+          </p>
+          <div class="gate-row">
+            <button id="btn-start" class="gate-btn primary" type="button">jack in</button>
+            <button id="btn-random" class="gate-btn ghost" type="button">random code</button>
+          </div>
+        </section>
+
+        <!-- pasted source -->
+        <section class="gate-panel">
+          <h2 class="gate-h">your own code <span class="gate-h-tag">optional</span></h2>
+          <textarea id="src-input" class="gate-src" spellcheck="false" autocomplete="off"
+            placeholder="paste a program here and the game will make you type it.&#10;&#10;C, Python, Rust, SQL, a shell script, a config file — anything with text in it."
+            aria-label="Paste code to play on"></textarea>
+          <p class="gate-note gate-src-note" id="src-note">
+            Kept in this browser only. The run code is a fingerprint, not your source.
+          </p>
+          <div class="gate-row gate-src-row">
+            <button id="btn-src-paste" class="gate-btn ghost" type="button">paste code</button>
+            <button id="btn-src-file" class="gate-btn ghost" type="button">open file&hellip;</button>
+            <button id="btn-src-clear" class="gate-btn ghost" type="button">clear</button>
+            <input id="src-file" type="file" accept=".txt,.py,.c,.h,.cpp,.rs,.go,.js,.ts,.java,.cs,.rb,.sh,.sql,.json,.yaml,.yml,.toml,.ini,.md,.css,.html,.xml,.php,.lua,.kt,.swift,.dart,.scala,.ex,.exs,.hs,.ml,.clj,.pl,.r,.jl,.asm,.s,.v,.sol,.glsl,text/*" hidden />
+            <label class="gate-check" for="src-remember">
+              <input id="src-remember" type="checkbox" checked /> remember
+            </label>
+          </div>
+          <p class="gate-src-stat" id="src-stat" hidden></p>
+        </section>
+      </div>
 
       <div class="gate-row gate-actions">
-        <button id="btn-start" class="gate-btn primary" type="button">jack in</button>
-        <button id="btn-random" class="gate-btn ghost" type="button">random code</button>
+        <label class="gate-select">
+          <span>no code? play</span>
+          <select id="lang-select" aria-label="Language pack"></select>
+        </label>
+        <button id="btn-gallery" class="gate-btn ghost" type="button">the art</button>
       </div>
 
       <div class="gate-meta">
         <span id="best-line">best: &mdash;</span>
         <span id="runs-line">runs: 0</span>
+        <span id="last-line"></span>
       </div>
 
       <details class="gate-help">
         <summary>how it works</summary>
         <ul>
           <li><b>grunts</b> are plain characters. Type them.</li>
-          <li><b>brutes</b> (whole words, in red) die on the last letter — but a miss inside one hurts 1.5&times;.</li>
-          <li><b>snipers</b> aim for 3.2s, then fire for 4 HP. Kill them or eat it.</li>
-          <li><b>bombers</b> explode after 1.6s. <b>Berserkers</b> rip 8 HP every 1.2s.</li>
-          <li><b>shields</b> need two hits, <b>juggernauts</b> three. <b>medics</b> heal, <b>caches</b> pay.</li>
+          <li><b>brutes</b> (whole words, in red) die on the last letter &mdash; but a miss inside one hurts 1.5&times;.</li>
+          <li><b>snipers</b> aim for 3.2s, then fire for 4 HP. <b>bombers</b> explode after 1.6s.</li>
+          <li><b>berserkers</b> rip 8 HP every 1.2s. <b>shields</b> need two hits, <b>juggernauts</b> three.</li>
+          <li><b>medics</b> heal, <b>caches</b> pay, <b>splitters</b> spawn, <b>summoners</b> armour letters.</li>
           <li><b>keys you miss get scarred</b> and come back underlined, costing double. 30 clean keys repairs one.</li>
           <li>Every third line of a floor is a <b>boss</b>; every floor cleared offers a <b>card</b>.</li>
-          <li>You get 100 HP. It never refills on its own. Combat runs till it ends.</li>
+          <li>You get 100 HP and it never refills by itself. Combat runs till it ends.</li>
         </ul>
       </details>
+    </div>
+  </main>
+
+  <!-- ============================== GALLERY ============================== -->
+  <main id="gallery" class="screen overlay gallery" hidden>
+    <div class="gallery-box">
+      <div class="gallery-head">
+        <div>
+          <p class="panel-kicker">assets</p>
+          <h2 class="panel-title">The art</h2>
+          <p class="gallery-note" id="gallery-note">every image asset from the original site, bundled locally</p>
+        </div>
+        <button id="btn-gallery-close" class="gate-btn ghost" type="button">close</button>
+      </div>
+      <div class="gallery-grid" id="gallery-grid"></div>
     </div>
   </main>
 
@@ -142,6 +204,7 @@
       </div>
 
       <p class="result-cards" id="result-cards"></p>
+      <p class="result-src" id="result-src" hidden></p>
 
       <div class="share">
         <label for="share-code">share code</label>
@@ -169,17 +232,28 @@
     </div>
   </div>
 
+  <div class="lightbox" id="lightbox" hidden>
+    <img id="lightbox-img" alt="" />
+    <p class="lightbox-cap" id="lightbox-cap"></p>
+    <button class="lightbox-close" id="lightbox-close" type="button" aria-label="Close">&times;</button>
+  </div>
+
   <script src="js/data/words.js"></script>
   <script src="js/data/snippets.js"></script>
+  <script src="js/data/packs.js"></script>
   <script src="js/core/rng.js"></script>
+  <script src="js/core/langs.js"></script>
   <script src="js/core/text.js"></script>
+  <script src="js/core/source.js"></script>
   <script src="js/core/enemies.js"></script>
   <script src="js/core/cards.js"></script>
   <script src="js/core/keys.js"></script>
   <script src="js/core/engine.js"></script>
+  <script src="js/core/setup.js"></script>
   <script src="js/core/codes.js"></script>
   <script src="js/ui/audio.js"></script>
   <script src="js/ui/world.js"></script>
+  <script src="js/ui/gallery.js"></script>
   <script src="js/ui/game.js"></script>
 </body>
 </html>

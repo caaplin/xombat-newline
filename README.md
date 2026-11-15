@@ -7,6 +7,12 @@ roguelike where you type Python ahead of an ICE trace and there is no backspace.
 out. There is no stage select, no practice, no leaderboard, no backend. It is a folder of HTML, CSS
 and JS that runs from `file://` or any static host.
 
+Two ways to get text into a run:
+
+- **A run code** (`XMB-7K4Q-P2NH`) — the shipped corpus, replayable by anyone.
+- **Your own code** — paste a program into the box and the game makes you type *it*, top to bottom.
+  C, Python, Rust, Go, SQL, a shell script, a config file, a novel: if it has text, it plays.
+
 <p align="center">
   <img src="docs/run.png" alt="A line of Python under the trace" width="820">
 </p>
@@ -21,19 +27,40 @@ open index.html            # or: python3 -m http.server 8080
 Then, on the gate screen:
 
 1. **Run code** — paste the code you were given (or leave it empty / hit *random code*).
-2. **Jack in.**
-3. Type the code on screen. Exactly. No backspace.
+2. Optionally **paste your own code** in the right-hand box, or **open a file**.
+3. **Jack in.**
+4. Type the code on screen. Exactly. No backspace.
 
 Your run code fully determines the run: the same code gives the same lines, the same enemies, the
 same card offers, in the same order. A share code looks like `XMB-7K4Q-P2NH`, and `index.html?code=XMB-7K4Q-P2NH`
 opens straight into that run. Any text works as a code — it is hashed into a seed — so `KEVIN` is a
 legal code and so is a full sentence.
 
+### Playing on your own code
+
+Drop anything into **your own code**: paste it, open a file, or type it. The game
+
+- **detects the language** (C, C++, Python, Rust, Go, Java, C#, Ruby, JS/TS, SQL, HTML, CSS, JSON,
+  YAML, shell, markdown, or plain text) and names it in the HUD,
+- keeps the document **in order**, wrapping long lines to the viewport and collapsing runs of blank
+  lines to a single Enter,
+- **loops** back to the top when it runs out, so "combat till end" still means something,
+- turns *that language's* keywords into brutes, so `printf` and `struct` are enemies and not just
+  letters,
+- shows your **progress** through the document next to the level (`· c 36%`), and
+- keeps your source in this browser only. The share code is a short **fingerprint** of the text, not
+  the text: hand someone the code and they get the same run shape without getting your code.
+
+`Tab` jumps the cursor over up to four spaces of indentation at once, and `Enter` finishes a blank
+line — because real code is mostly whitespace.
+
 | | |
 |---|---|
 | `A`–`Z` `0`–`9` punctuation `Space` | type |
+| `Tab` | jump one indent (up to 4 spaces) |
+| `Enter` | finish a blank line |
 | `Escape` | pause / resume |
-| `Enter` | resume, or restart on the result screen |
+| `Enter` (result screen) | again, same code |
 | `1` `2` `3` | pick a card |
 | `Backspace` | *nothing*. It says so on the tin. |
 
@@ -42,6 +69,14 @@ legal code and so is a full sentence.
 | gate | cards | result |
 |---|---|---|
 | ![gate](docs/gate.png) | ![cards](docs/cards.png) | ![result](docs/result.png) |
+
+**The art.** Every image that ships with the original site — key art, social card, the 64px pixel
+icon set, the five illustration atlases, and the Hexarun / PXLbots / Chatty / event photography — is
+bundled under `assets/` and browsable in-game via **the art** button. 96 images, all local, no CDN.
+
+<p align="center"><img src="docs/gallery.png" alt="asset gallery" width="880"></p>
+
+<p align="center"><img src="docs/paste.png" alt="paste your own code" width="720"></p>
 
 Mobile works too — the file input trick opens the on-screen keyboard:
 
@@ -113,7 +148,10 @@ you broke are all on the result screen, along with the code to hand to someone e
 index.html            all five screens, one page
 css/game.css          terminal aesthetic, colours, animations
 js/core/rng.js        seeded stream (FNV-1a hash + mulberry-ish)
+js/core/langs.js      language detection + per-language keyword sets
 js/core/text.js       snippet dealing and line wrapping
+js/core/source.js     pasted code -> playable lines (clean, wrap, loop)
+js/core/setup.js      one place that decides what a run is made of
 js/core/enemies.js    zones, hazards, the enemy roster, dressing a line
 js/core/engine.js     the simulation — headless, no DOM
 js/core/keys.js       scars: cracked and mined keys
@@ -122,11 +160,15 @@ js/core/codes.js      run codes -> seeds
 js/ui/game.js         screens, render loop, keyboard, persistence
 js/ui/world.js        the pixel city behind the terminal (canvas)
 js/ui/audio.js        all SFX synthesised with WebAudio
-js/data/*.js          generated: 34 Python snippets, 620 English words
+js/data/snippets.js   generated: the 34 Python snippets
+js/data/packs.js      generated: 48 language packs, 370 snippets
+js/data/words.js      generated: 620 English words
+js/ui/gallery.js      the asset browser
 tools/sim-test.cjs    headless rule tests (node, no dependencies)
 tools/extract-data.cjs  regenerates js/data from the original bundle
 assets/fonts          IBM Plex Mono + VT323 (SIL OFL)
 assets/music          two loops from the original site
+assets/art, assets/img, assets/media   every image from the original site
 docs/                 screenshots + the reverse-engineering notes
 ```
 
@@ -136,13 +178,16 @@ The engine is deliberately DOM-free, so the whole rule set is testable from node
 node tools/sim-test.cjs
 ```
 
-It checks the seed determinism, line wrapping, that brutes never cut a word in half, that a miss
-costs HP and scars the key, that standing still gets you killed, that lethal hazards kill rather
-than damage, that floors advance and offer cards, that the same code plays out identically twice and
-a different code does not, and that a flawless typist can go deep while a fallible one dies.
+67 checks: seed determinism, line wrapping, that brutes never cut a word in half, that a miss costs HP
+and scars the key, that standing still gets you killed, that lethal hazards kill rather than damage,
+that floors advance and offer cards, that the same code plays out identically twice and a different
+code does not, that a flawless typist can go deep while a fallible one dies — plus, for pasted code:
+that text is cleaned, ordered, width-wrapped and looping, that languages are detected, that every
+line played came from your document, and that the share code carries no source text.
 
-State lives in `localStorage` only: your best score, your run count, and whether sound is on.
-Nothing is sent anywhere — there is no server to send it to.
+State lives in `localStorage` only: your best score, your run count, whether sound is on, and (if
+**remember** is ticked) the code you pasted. Nothing is sent anywhere — there is no server to send it
+to.
 
 ## How this was built
 

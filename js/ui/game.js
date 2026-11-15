@@ -13,6 +13,7 @@
     best: 'xombat.best.v1',
     runs: 'xombat.runs.v1',
     sound: 'xombat.sound.v1',
+    last: 'xombat.last.v1',
   };
 
   const SPEEDS = [7, 9, 11, 13, 16, 20, 24]; // line widths -> font-size buckets
@@ -46,8 +47,11 @@
   };
 
   const state = {
-    mode: 'gate', // gate | play | pause | result | cards
+    mode: 'gate', // gate | play | pause | result | cards | gallery
     code: '',
+    lang: 'auto',
+    useSource: false, // true when the run is built from pasted code
+    savedSource: null,
     engine: null,
     lastFrame: 0,
     raf: 0,
@@ -139,6 +143,86 @@
     });
   }
 
+  /* ------------------------------------------------------------------ *
+   * pasted source: the player's own code becomes the game's text
+   * ------------------------------------------------------------------ */
+
+  let saveTimer = 0;
+
+  /** Whatever is in the textarea right now (normalised). */
+  function sourceText() {
+    const el = $('src-input');
+    return el ? BL.sourceStore.clean(el.value) : '';
+  }
+
+  function sourceStats() {
+    const text = sourceText();
+    const el = $('src-stat');
+    const note = $('src-note');
+    if (!el) return;
+    if (!text.trim()) {
+      el.hidden = true;
+      note.textContent = 'Kept in this browser only. The run code is a fingerprint, not your source.';
+      note.classList.remove('on');
+      return;
+    }
+    const lang = BL.langs.detect(text);
+    const lines = BL.sourceStore.toLines(text, 60).length;
+    const chars = text.length;
+    el.hidden = false;
+    el.innerHTML =
+      '<b>' + escapeHtml(lang.name) + '</b> · ' + chars.toLocaleString('en-US') + ' chars · ' +
+      lines.toLocaleString('en-US') + ' lines · run code stays a fingerprint';
+    note.classList.add('on');
+    note.textContent =
+      'Press jack in and you will type this, top to bottom, looping when it runs out.';
+  }
+
+  /** Keep the pasted source between visits (opt-out with the checkbox). */
+  function persistSource() {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => {
+      const remember = $('src-remember') && $('src-remember').checked;
+      const text = sourceText();
+      if (remember && text.trim()) BL.sourceStore.save(text);
+      else BL.sourceStore.clear();
+    }, 400);
+  }
+
+  function setSource(text, remember) {
+    $('src-input').value = text;
+    if (remember !== undefined && $('src-remember')) $('src-remember').checked = remember;
+    sourceStats();
+    persistSource();
+  }
+
+  /** Fill the language picker from whatever packs the extraction produced. */
+  function fillLanguages() {
+    const sel = $('lang-select');
+    if (!sel || sel.options.length) return;
+    sel.innerHTML = BL.setup
+      .languages()
+      .map((l) => '<option value="' + l.id + '">' + escapeHtml(l.name) + '</option>')
+      .join('');
+    sel.value = state.lang;
+    sel.addEventListener('change', () => {
+      state.lang = sel.value;
+    });
+  }
+
+  /** Clipboard read with a graceful no-permission fallback. */
+  async function readClipboard() {
+    try {
+      if (navigator.clipboard && navigator.clipboard.readText) {
+        const text = await navigator.clipboard.readText();
+        if (text) return text;
+      }
+    } catch (e) {
+      /* blocked, fall through */
+    }
+    return '';
+  }
+
   function gateScreen() {
     state.mode = 'gate';
     show('gate');
@@ -150,6 +234,10 @@
     $('runs-line').textContent = 'runs: ' + runs;
     const input = $('code-input');
     if (state.code) input.value = state.code;
+    fillLanguages();
+    sourceStats();
+    const last = read(STORE.last, null);
+    $('last-line').textContent = last ? 'last: ' + last : '';
     setTimeout(() => input.focus(), 30);
   }
 
@@ -162,7 +250,14 @@
     state.code = normalized;
     const seed = BL.codes.toSeed(normalized);
     lineCols = fitLine();
-    state.engine = new BL.Engine({ seed, lineLength: lineCols });
+    const pasted = sourceText();
+    state.useSource = !!pasted.trim() && pasted.trim().length >= 8;
+    state.engine = BL.setup.engineFor({
+      seed,
+      lineLength: lineCols,
+      text: pasted,
+      lang: state.lang,
+    });
     state.spans = [];
     state.spanText = '';
     state.historyLines = [];
@@ -202,6 +297,7 @@
     const isBest = score > best;
     if (isBest) write(STORE.best, score);
     write(STORE.runs, read(STORE.runs, 0) + 1);
+    write(STORE.last, state.code + (e.pasted ? ' (your code)' : ''));
 
     $('result-kicker').textContent = e.endReason === 'quit' ? 'disconnected' : 'combat ended';
     $('result-title').textContent =
@@ -221,6 +317,16 @@
       ? 'cards: <b>' + cards.join('</b> · <b>') + '</b>'
       : 'no cards taken — you died too early for the fun stuff';
 
+    const srcLine = $('result-src');
+    if (e.pasted) {
+      srcLine.hidden = false;
+      srcLine.innerHTML =
+        'played on <b>your code</b> (' + escapeHtml(e.lang || 'text') + ', ' +
+        e.pasted.totalLines + ' lines, ' + e.pasted.looped + '&times; looped). ' +
+        'The share code is only a fingerprint &mdash; your source stays here.';
+    } else {
+      srcLine.hidden = true;
+    }
     $('share-code').value = state.code;
     show('result');
     BL.Audio.death();
@@ -365,6 +471,18 @@
     ui.zoneName.textContent = snap.zone.label;
     const cards = state.engine.cards.map((c2) => c2.name);
     ui.cardsTag.textContent = cards.length ? ' · ' + cards.join(' · ') : '';
+    const langTag = $('lang-tag');
+    if (snap.pasted) {
+      const pct = Math.round((snap.sourceProgress || 0) * 100);
+      langTag.textContent = '· ' + (snap.lang || 'text') + ' ' + pct + '%' +
+        (snap.sourceLoops ? ' ↻' + snap.sourceLoops : '');
+      langTag.classList.add('own');
+    } else if (snap.lang) {
+      langTag.textContent = '· ' + snap.lang;
+      langTag.classList.remove('own');
+    } else {
+      langTag.textContent = '';
+    }
   }
 
   function renderBoss(snap) {
@@ -630,6 +748,34 @@
    * keyboard
    * ------------------------------------------------------------------ */
 
+  /**
+   * Whitespace shortcuts, because real code is full of indentation.
+   * Tab types up to four spaces at once (or a literal tab if the line has one);
+   * Enter types the single space that stands in for a blank line.
+   */
+  function typeWhitespace(isTab) {
+    const e = state.engine;
+    if (!e || state.mode !== 'play') return;
+    const at = e.line[e.cursor];
+    if (at === undefined) return;
+    if (at === '\t') return typingKey('\t');
+    if (at !== ' ') {
+      // nothing sensible to jump over: count it as a miss so it still costs
+      typingKey(isTab ? '\t' : '\n');
+      return;
+    }
+    let n = 0;
+    while (e.cursor < e.line.length && e.line[e.cursor] === ' ' && n < (isTab ? 4 : 1)) {
+      e.input(' ', performance.now());
+      n++;
+      e.drain();
+      if (e.dead) break;
+    }
+    BL.Audio.key();
+    handleEvents(e.drain());
+    if (e.dead) endRun();
+  }
+
   function typingKey(ch) {
     const e = state.engine;
     if (!e) return;
@@ -686,6 +832,18 @@
         return;
       }
       if (ev.ctrlKey || ev.metaKey || ev.altKey) return;
+      if (ev.key === 'Tab') {
+        // Tab jumps the cursor through the indentation instead of moving focus
+        ev.preventDefault();
+        typeWhitespace(true);
+        return;
+      }
+      if (ev.key === 'Enter') {
+        // Enter finishes a blank line the way Space would
+        ev.preventDefault();
+        typeWhitespace(false);
+        return;
+      }
       if (ev.key === 'Backspace' || ev.key === 'Delete') {
         // no backspace. it says so on the tin.
         ev.preventDefault();
@@ -729,28 +887,77 @@
     initSound();
     bindKeys();
 
-    $('btn-start').addEventListener('click', () => startRun($('code-input').value));
+    BL.gallery.init();
+    fillLanguages();
+
+    // restore a remembered source
+    const saved = BL.sourceStore.load();
+    if (saved) {
+      state.savedSource = saved.text;
+      $('src-input').value = saved.text;
+      sourceStats();
+    }
+
+    const launch = () => startRun($('code-input').value);
+    $('btn-start').addEventListener('click', launch);
     $('btn-random').addEventListener('click', () => {
       const code = BL.codes.generate();
       $('code-input').value = code;
       startRun(code);
     });
-    $('btn-paste').addEventListener('click', async () => {
-      try {
-        const text = await navigator.clipboard.readText();
-        if (text) {
-          $('code-input').value = BL.codes.normalize(text);
-          $('code-input').focus();
-        }
-      } catch (e) {
+
+    // --- run code clipboard
+    $('btn-paste-code').addEventListener('click', async () => {
+      const text = await readClipboard();
+      if (text) {
+        $('code-input').value = BL.codes.normalize(text);
         $('code-input').focus();
-        toast('clipboard blocked — paste it yourself');
-      }
+      } else toast('clipboard blocked — paste it yourself');
     });
     $('code-input').addEventListener('input', (ev) => {
       ev.target.value = ev.target.value.toUpperCase().replace(/[^A-Z0-9-]/g, '').slice(0, 40);
     });
 
+    // --- pasted source
+    $('btn-src-paste').addEventListener('click', async () => {
+      const text = await readClipboard();
+      if (text) {
+        setSource(text);
+        toast('pasted ' + text.length.toLocaleString('en-US') + ' chars — jack in to play it');
+      } else {
+        $('src-input').focus();
+        toast('clipboard blocked — use the box or open a file');
+      }
+    });
+    $('src-input').addEventListener('input', () => {
+      sourceStats();
+      persistSource();
+    });
+    $('src-input').addEventListener('paste', () => setTimeout(() => {
+      sourceStats();
+      persistSource();
+    }, 0));
+    $('btn-src-clear').addEventListener('click', () => {
+      setSource('');
+      BL.sourceStore.clear();
+      toast('source cleared');
+    });
+    $('src-remember').addEventListener('change', persistSource);
+    $('btn-src-file').addEventListener('click', () => $('src-file').click());
+    $('src-file').addEventListener('change', (ev) => {
+      const file = ev.target.files && ev.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        setSource(String(reader.result || ''));
+        toast('loaded ' + file.name);
+      };
+      reader.onerror = () => toast('could not read that file');
+      reader.readAsText(file);
+      ev.target.value = '';
+    });
+
+    // --- chrome
     $('btn-resume').addEventListener('click', resumeRun);
     $('btn-quit').addEventListener('click', () => {
       if (!state.engine) return;

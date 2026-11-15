@@ -32,17 +32,20 @@
    * next time. Never repeats a snippet until the pool is exhausted.
    */
   class CodeSource {
-    constructor(rng) {
+    constructor(rng, pool) {
       this.rng = rng;
       this.pending = [];
       this.used = new Set();
       this.snippet = null;
+      // `pool` lets a specific language package (e.g. only Python) be played;
+      // with no pool every snippet in the shipped corpus is fair game.
+      this.pool = pool && pool.length ? pool : SNIPPETS;
     }
 
     nextSnippet() {
-      if (this.used.size >= SNIPPETS.length) this.used.clear();
-      const pool = SNIPPETS.filter((s) => !this.used.has(s));
-      const s = BL.pick(this.rng, pool.length ? pool : SNIPPETS);
+      if (this.used.size >= this.pool.length) this.used.clear();
+      const pool = this.pool.filter((s) => !this.used.has(s));
+      const s = BL.pick(this.rng, pool.length ? pool : this.pool);
       this.used.add(s);
       this.snippet = s;
       return s;

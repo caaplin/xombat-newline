@@ -162,6 +162,37 @@ input-twisting bosses, the card deck, and the `accuracy⁴ × rhythm` scoring.
   (`c-todo`, `c-hit`, `c-scar`, `c-wounded`, `c-ash`, `c-fog`, `c-mine`, `c-cur`, `c-k-*`).
 - **run codes** — the original had no shareable seed string outside the ranked boards. Here any text
   becomes a code, normalised to `A–Z0–9-` and hashed.
+- **pasted sources and language packs** — see 5b. Not in the original at all.
+- **the asset gallery** — a browser for the 96 images pulled from the site, since the game itself only
+  needs three of them.
+
+## 4b. The image assets
+
+The game draws almost everything at runtime: characters are procedurally generated
+`hero:<id>:<pose>:ice` sprites on canvas, the city is drawn per pixel, the UI icons are inline SVG.
+Only two images ship with `/burnline/` itself:
+
+| asset | what it is |
+|---|---|
+| `art/key-art.jpg` | 1536x1024 key art — the runner, the wire, the wolf |
+| `og.jpg` | 1200x630 social card |
+| `favicon.svg` | the icon |
+
+The rest of the imagery lives on the wider site, so all of it was pulled down and bundled:
+
+| folder | contents |
+|---|---|
+| `assets/img/icons/*.png` | 16 pixel glyphs at 64px + 5 illustration atlases at 1200–1536px |
+| `assets/img/hexarun/`, `pxlbots/`, `chatty/` | product photography and UI shots |
+| `assets/img/partners/`, `thumbs/`, `logo.svg`, `mode-*.jpg` | brand and venue |
+| `assets/media/events/` | event covers and photos |
+
+96 images, ~13 MB, served locally. The key art is used on the gate screen; the whole set is browsable
+in the built-in gallery (**the art** button), which is the honest way to "integrate" assets that the
+game itself has no use for.
+
+Sprites were *not* ripped from the atlases: the original generates its characters from code, and the
+atlases are marketing illustrations in a different art style. The procedural look was kept instead.
 
 ## 5. Two judgement calls
 
@@ -176,6 +207,27 @@ catch only costs 25% of the raw number, which makes the first floor forgiving an
 That was kept, and bot runs against the headless engine confirm the shape: a flawless typist at 70 ms
 a key gets into the 40s before a lethal hazard finally catches them, while a 2–5% error rate typically
 ends somewhere in floors 2–10 — often to Foundry's lethal bridge or a glass-cannon mistake.
+
+## 5b. Playing on pasted code
+
+The original has no such feature — it deals from its own corpus. Adding it needed three pieces:
+
+1. **`source.js`** — cleans the text (CRLF → LF, tabs → 4 spaces, control bytes stripped), drops runs
+   of blank lines to one, wraps every line to the viewport width, and deals them back in order,
+   looping at the end. It also keeps a 6-character FNV fingerprint so a run code can identify a source
+   without containing it.
+2. **`langs.js`** — 17 detector rules in priority order (Python's `def …:` beats Ruby's `def`, `#include
+   <iostream>` beats plain C) plus per-language keyword sets so brutes are language-appropriate. A
+   pasted document also allows length-based brutes, because prose has no keywords.
+3. **`setup.js`** — the single place that turns `{seed, text, lang}` into engine options, so the UI
+   never has to know whether a run is corpus, pack, or paste.
+
+The corpus itself got a second life out of this: the extraction now also emits **48 language packs**
+(370 snippets, ~6k characters each) so "no code? play C" works with the original's own C snippets.
+
+Privacy note: a pasted program is never hashed into the seed and never put in a share code — only its
+fingerprint is. Two different pastes with the same code still produce the same enemies and card order,
+because those come from the seed.
 
 ## 6. Reproducing the extraction
 

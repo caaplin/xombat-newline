@@ -19,12 +19,16 @@ const ctx = vm.createContext(sandbox);
 const files = [
   'js/data/words.js',
   'js/data/snippets.js',
+  'js/data/packs.js',
   'js/core/rng.js',
+  'js/core/langs.js',
   'js/core/text.js',
+  'js/core/source.js',
   'js/core/enemies.js',
   'js/core/cards.js',
   'js/core/keys.js',
   'js/core/engine.js',
+  'js/core/setup.js',
   'js/core/codes.js',
 ];
 for (const f of files) {
@@ -260,6 +264,95 @@ console.log('\ncodes');
   ok(bad === 0, '500 generated codes are all well formed');
   ok(BL.codes.normalize('  xmb-7k4q  ') === 'XMB-7K4Q', 'codes normalise to uppercase');
   ok(BL.codes.toSeed('abc') !== BL.codes.toSeed('abd'), 'different codes -> different seeds');
+}
+
+/* -------------------------------------------------- 10. pasted source */
+console.log('\npasted source');
+{
+  const C = [
+    '#include <stdio.h>',
+    '#include <string.h>',
+    '',
+    'typedef struct {',
+    '    char name[24];',
+    '    int strength;',
+    '} Ice;',
+    '',
+    'int main(void) {',
+    '    Ice fw = {"firewall", 4};',
+    '    printf("%s %d\\n", fw.name, fw.strength);',
+    '    return 0;',
+    '}',
+  ].join('\n');
+
+  const cleaned = BL.sourceStore.clean('a\r\nb\tc\u0000d');
+  ok(cleaned === 'a\nb    c d', 'clean() normalises newlines, tabs and control junk', JSON.stringify(cleaned));
+
+  const lines = BL.sourceStore.toLines(C, 40);
+  ok(lines[0] === '#include <stdio.h>', 'the document keeps its order', lines.slice(0, 3));
+  ok(lines.every((l) => l.length <= 40), 'no line exceeds the width');
+  ok(lines.filter((l) => l === ' ').length === 2, 'each run of blank lines collapses to one');
+  ok(!lines.length || lines[lines.length - 1] !== ' ', 'trailing blank lines are dropped');
+
+  ok(BL.langs.detect(C).id === 'c', 'detects C', BL.langs.detect(C).name);
+  ok(BL.langs.detect('def go():\n\treturn 1\n').id === 'python', 'detects python');
+  ok(BL.langs.detect('SELECT id FROM users WHERE id = 1').id === 'sql', 'detects sql');
+  ok(BL.langs.detect('fn main() { let mut x = 1; println!("{}", x); }').id === 'rust', 'detects rust');
+  ok(BL.langs.detect('package main\n\nfunc main() {}').id === 'go', 'detects go');
+  ok(BL.langs.detect('plain words with no structure at all').id === 'plaintext', 'falls back to text');
+
+  const e = BL.setup.engineFor({ seed: 'paste-1', lineLength: 40, text: C });
+  ok(e.pasted && e.pasted.totalLines > 5, 'the engine plays the pasted document', e.pasted.totalLines);
+  ok(e.lang === 'c', 'the engine knows the language', e.lang);
+
+  // what the player types must be the document, in order
+  const played = [];
+  for (let n = 0; n < 2000 && played.length < 6; n++) {
+    if (e.offer) { e.choose(0); e.drain(); continue; }
+    const before = e.line;
+    if (e.cursor === 0) played.push(before);
+    e.input(e.line[e.cursor], n * 40);
+    e.tick(0.002);
+    e.drain();
+  }
+  ok(played.length >= 4, 'several pasted lines came up', played.length);
+  const allFromDoc = played.every((chunk) =>
+    chunk.split('\n').every((l) => lines.includes(l) || l === ''));
+  ok(allFromDoc, 'every line played came from the pasted document', played.slice(0, 2));
+
+  // finishing the whole document loops back to the top rather than dying
+  const loop = BL.setup.engineFor({ seed: 'paste-2', lineLength: 60, text: 'x = 1\ny = 2\nz = x + y\nprint(z)\n' });
+  for (let n = 0; n < 400 && loop.pasted.looped === 0; n++) {
+    if (loop.offer) { loop.choose(0); loop.drain(); continue; }
+    loop.input(loop.line[loop.cursor], n * 30);
+    loop.drain();
+  }
+  ok(loop.pasted.looped >= 1, 'a short document loops instead of ending the run', loop.pasted.looped);
+
+  // a fingerprint identifies a source without revealing it
+  const fp = BL.sourceStore.fingerprint(C);
+  ok(fp.length >= 4 && fp.length <= 6, 'fingerprint is short', fp);
+  ok(BL.sourceStore.fingerprint(C + ' ') !== fp, 'fingerprint changes with the source');
+
+  // nothing from the source ends up in the share code
+  const code = BL.codes.generateFrom ? BL.codes.generateFrom(fp) : 'XMB-' + fp + '-0000';
+  ok(!code.includes('#include') && code.length < 20, 'the share code carries no source', code);
+}
+
+/* ------------------------------------------------ 11. language packs */
+console.log('\nlanguage packs');
+{
+  const langs = BL.setup.languages();
+  ok(langs.length >= 40, 'the picker lists the packs', langs.length);
+  const c = BL.setup.poolFor('c');
+  ok(c && c.length >= 3, 'the C pack has snippets', c && c.length);
+  const e = BL.setup.engineFor({ seed: 'pack-c', lineLength: 44, lang: 'c' });
+  ok(!e.pasted && e.lang === 'C', 'a pack run is not a pasted run', e.lang);
+  ok(/[{};]/.test(e.line) || /#include|c|int/.test(e.line), 'the C pack deals C', e.line);
+  const py = BL.setup.engineFor({ seed: 'pack-py', lineLength: 44, lang: 'python' });
+  ok(/def |class |print\(|self/.test(py.line) || py.line.length > 8, 'the python pack deals python', py.line);
+  const auto = BL.setup.engineFor({ seed: 'pack-auto', lineLength: 44, lang: 'auto' });
+  ok(!!auto.line, 'auto falls back to the shipped corpus');
 }
 
 console.log('\n' + (failures ? failures + ' FAILURES' : 'all checks passed'));

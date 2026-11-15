@@ -62,7 +62,11 @@
       this.rng = BL.rng(this.seed);
       this.kindRng = BL.rng(this.seed + '|kinds');
 
-      this.code = new BL.CodeSource(this.rng);
+      // source of the text: the shipped corpus, or whatever the player pasted
+      this.pasted = opts.source || null;
+      this.lang = opts.lang || null;
+      this.keywords = opts.keywords || null;
+      this.code = this.pasted ? null : new BL.CodeSource(this.rng, opts.pool);
       this.keys = new BL.KeyScars();
       this.mods = BL.defaultMods();
 
@@ -236,14 +240,20 @@
         const elite = (info.roster.elite) && slot === 4;
         const kinds = isBoss
           ? dressBoss(text)
-          : dress(text, this.kindRng, { roster: info.roster, elite });
+          : dress(text, this.kindRng, {
+              roster: info.roster,
+              elite,
+              keywords: this.keywords || undefined,
+              byLength: !!this.pasted,
+            });
         this.queue.push({ text, boss, kinds });
       }
     }
 
     writeLine(boss) {
-      const width = Math.round(this.lineLength * (boss ? 0.9 : 1));
-      let text = this.code.next(Math.max(10, width));
+      const width = Math.max(10, Math.round(this.lineLength * (boss ? 0.9 : 1)));
+      let text = this.pasted ? this.pasted.next(width) : this.code.next(width);
+      if (!text) text = BL.wordChain(this.rng, width);
       if (boss && boss.id === 'mirror') text = mirrorText(text);
       return text;
     }
@@ -778,6 +788,10 @@
         mined: this.line.split('').map((c) => this.keys.isMined(c)),
         kinds: this.kinds,
         offer: this.offer,
+        lang: this.lang,
+        sourceProgress: this.pasted ? this.pasted.progress() : null,
+        sourceLoops: this.pasted ? this.pasted.looped : 0,
+        pasted: !!this.pasted,
         heat: clamp01(1 - (this.cursor - this.fire - 1) / 10),
       };
     }

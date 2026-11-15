@@ -413,6 +413,7 @@
    */
   function dress(text, rng, opts) {
     const roster = opts.roster;
+    const keywords = opts.keywords || KEYWORDS;
     const kinds = Array.from(text, () => 'grunt');
     const maxBrutes = roster.bruteMax;
 
@@ -421,7 +422,9 @@
     for (const [start, end] of words(text)) {
       if (brutes >= maxBrutes) break;
       const word = text.slice(start, end);
-      const worthIt = KEYWORDS.has(word) || (roster.elite && word.length >= 4);
+      // whitespace-delimited text (prose, pasted docs) has no identifiers, so
+      // fall back on length alone when the "words" are ordinary English
+      const worthIt = keywords.has(word) || (roster.elite && word.length >= 4) || opts.byLength && word.length >= 6;
       if (worthIt && rng() < roster.brute) {
         for (let i = start; i < end; i++) kinds[i] = 'brute';
         brutes++;
