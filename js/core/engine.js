@@ -203,8 +203,15 @@
       const n = this.hits + this.misses;
       return n === 0 ? 1 : this.hits / n;
     }
+    /**
+     * Words per minute, five keystrokes to the word. The floor on elapsed time
+     * matters: a burst of strokes inside a fraction of a second is a fast burst,
+     * not a six-figure WPM, and a run ended on its first keystroke is not
+     * infinitely fast.
+     */
     wpm() {
-      return this.elapsed <= 0 ? 0 : this.hits / 5 / (this.elapsed / 60000);
+      const secs = Math.max(1, this.elapsed);
+      return Math.min(400, this.hits / 5 / (secs / 60));
     }
     rhythm() {
       const iv = this.intervals.filter((t) => t > 0 && t < 2000);

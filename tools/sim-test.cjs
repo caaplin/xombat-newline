@@ -339,6 +339,25 @@ console.log('\npasted source');
   ok(!code.includes('#include') && code.length < 20, 'the share code carries no source', code);
 }
 
+/* ---------------------------------------------------------------- 10b. wpm */
+console.log('\nwords per minute');
+{
+  const e = new BL.Engine({ seed: 'wpm-1', lineLength: 40 });
+  // no time has passed at all
+  ok(e.wpm() === 0, 'a run with no hits and no time is 0 wpm', e.wpm());
+  // 100 strokes in one second is a burst, not a lottery win
+  for (let i = 0; i < 100; i++) e.input(e.line[e.cursor], 1000 + i);
+  e.elapsed = 0.05;
+  const burst = e.wpm();
+  ok(burst <= 400 && burst >= 0, 'a fast burst reports a plausible wpm', Math.round(burst));
+
+  // a realistic 90 wpm typist: 450 strokes over 60 seconds
+  const slow = new BL.Engine({ seed: 'wpm-2', lineLength: 40 });
+  slow.elapsed = 60;
+  slow.hits = 450;
+  ok(Math.round(slow.wpm()) === 90, 'the formula reads 90 wpm as 90', slow.wpm());
+}
+
 /* ------------------------------------------------------ 11. typeability */
 console.log('\ntypeability');
 {
